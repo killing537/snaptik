@@ -20,6 +20,8 @@ HTML_TEMPLATE = """
         .container { background-color: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; max-width: 500px; width: 100%; }
         h1 { font-size: 1.5rem; color: #ffc107; }
         p.subtitle { color: #606770; margin-bottom: 1.5rem; }
+        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 1rem; border: 1px solid #dddfe2; border-radius: 6px; box-sizing: border-box; }
+        button { background-color: #0d6efd; color: white; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: bold; width: 100%; }
         .result { margin-top: 1.5rem; }
         .result a { background-color: #198754; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; }
         .error { color: #dc3545; font-weight: bold; }
@@ -29,7 +31,13 @@ HTML_TEMPLATE = """
 <body>
     <div class="container">
         <h1>Eksperimen Hardcode Token</h1>
-        <p class="subtitle">Mencoba menggunakan token: {{ token_used }}</p>
+        <p class="subtitle">Mencoba menggunakan token statis: {{ token_used }}</p>
+        
+        <form method="post">
+            <input type="text" name="tiktok_url" placeholder="Tempel URL TikTok di sini..." required>
+            <button type="submit">Uji Coba Download</button>
+        </form>
+
         <div class="result">
             {% if download_link %}
                 <p class="info">HASIL: Berhasil! Ini membuktikan token bersifat statis.</p>
@@ -52,7 +60,6 @@ def get_link_with_hardcoded_token(tiktok_url):
         'Referer': 'https://snaptik.app/ID2'
     }
     
-    # LANGSUNG LOMPAT KE LANGKAH 2: Menggunakan token yang sudah kita simpan
     api_url = "https://snaptik.app/abc2.php"
     payload = {
         'url': tiktok_url,
@@ -78,13 +85,13 @@ def get_link_with_hardcoded_token(tiktok_url):
         return None, f"Terjadi kesalahan jaringan: {str(e)}"
 
 # --- Routing Aplikasi Flask ---
-# Cukup buka halaman utama untuk menjalankan eksperimen
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def home():
-    # Untuk eksperimen ini, kita gunakan URL TikTok statis agar mudah
-    test_url = "https://vt.tiktok.com/ZSYgr4P2E/" 
+    if request.method == 'POST':
+        url_input = request.form.get('tiktok_url')
+        link, error = get_link_with_hardcoded_token(url_input)
+        return render_template_string(HTML_TEMPLATE, download_link=link, error=error, token_used=HARDCODED_TOKEN)
     
-    link, error = get_link_with_hardcoded_token(test_url)
-    
-    return render_template_string(HTML_TEMPLATE, download_link=link, error=error, token_used=HARDCODED_TOKEN)
+    # Tampilan awal saat halaman dibuka
+    return render_template_string(HTML_TEMPLATE, token_used=HARDCODED_TOKEN)
     
