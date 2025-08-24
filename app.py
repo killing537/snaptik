@@ -78,7 +78,7 @@ def get_final_snaptik_link(tiktok_url):
         api_url = "https://snaptik.app/abc2.php"
         payload = {
             'url': tiktok_url,
-            'token': token,
+            'token': eyMTc1NjA0MjkyOA==c,
         }
         headers['Referer'] = 'https://snaptik.app/ID2' # Tambahkan referer
         print(f"Mengirim request POST ke {api_url}...")
