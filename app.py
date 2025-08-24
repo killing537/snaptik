@@ -1,88 +1,122 @@
 import requests
 import re
-from flask import Flask, render_template_string
+from flask import Flask, request, render_template_string
 
 app = Flask(__name__)
 
-# --- Template HTML untuk Menampilkan Hasil Eksperimen ---
+# --- Template HTML ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eksperimen Scraping Token</title>
+    <title>TikTok Downloader (SnapTik Final)</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #1c1e21; padding: 2rem; }
-        .container { background-color: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
-        h1 { color: #0d6efd; }
-        h2 { border-bottom: 2px solid #eee; padding-bottom: 0.5rem; margin-top: 2rem; }
-        code { background-color: #e9ecef; padding: 0.2rem 0.4rem; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; display: block; }
-        .success { color: #198754; font-weight: bold; }
-        .failure { color: #dc3545; font-weight: bold; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #1c1e21; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 1rem; box-sizing: border-box; }
+        .container { background-color: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; max-width: 500px; width: 100%; }
+        h1 { font-size: 1.5rem; color: #0d6efd; }
+        p.subtitle { color: #606770; margin-bottom: 1.5rem; }
+        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 1rem; border: 1px solid #dddfe2; border-radius: 6px; box-sizing: border-box; }
+        button { background-color: #0d6efd; color: white; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: bold; width: 100%; transition: background-color 0.2s; }
+        button:hover { background-color: #0b5ed7; }
+        .result { margin-top: 1.5rem; }
+        .result a { background-color: #198754; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; }
+        .result a:hover { background-color: #157347; }
+        .error { color: #dc3545; font-weight: bold; }
+        .loader { display: none; margin: 1rem auto; border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #0d6efd; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Hasil Eksperimen: Scraping Token dari SnapTik</h1>
-        
-        <h2>Hasil Pencarian Token:</h2>
-        {% if token %}
-            <p class="success">Token ditemukan!</p>
-            <code>{{ token }}</code>
-        {% else %}
-            <p class="failure">Token TIDAK ditemukan di dalam HTML awal.</p>
-            <p>Ini membuktikan bahwa token dibuat oleh JavaScript setelah halaman dimuat, sehingga tidak terlihat oleh library 'requests'.</p>
-        {% endif %}
-
-        <h2>HTML Mentah yang Diterima (Potongan):</h2>
-        <code>{{ raw_html }}</code>
+        <h1>TikTok Downloader</h1>
+        <p class="subtitle">Ditenagai oleh SnapTik (Versi Final)</p>
+        <form method="post" onsubmit="document.getElementById('loader').style.display='block'">
+            <input type="text" name="tiktok_url" placeholder="Tempel URL TikTok di sini..." required>
+            <button type="submit">Download</button>
+        </form>
+        <div class="loader" id="loader"></div>
+        <div class="result">
+            {% if download_link %}
+                <p>Video berhasil diproses!</p>
+                <a href="{{ download_link }}" target="_blank">Unduh Video Tanpa Watermark</a>
+            {% endif %}
+            {% if error %}
+                <p class="error">Error: {{ error }}</p>
+            {% endif %}
+        </div>
     </div>
 </body>
 </html>
 """
 
-def scrape_initial_token():
-    """
-    Fungsi ini mengambil halaman utama SnapTik dan mencoba mengekstrak token.
-    """
-    url = "https://snaptik.app/ID2"
+# --- Fungsi Backend Final untuk SnapTik ---
+def get_final_snaptik_link(tiktok_url):
+    session = requests.Session()
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
     }
     
     try:
-        print("Mencoba mengambil HTML dari SnapTik...")
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-        html_content = response.text
-        print("HTML berhasil diambil.")
+        # --- LANGKAH 1: Mengambil halaman utama untuk mendapatkan token ---
+        home_url = "https://snaptik.app"
+        print(f"Mengambil halaman utama dari {home_url}...")
+        home_response = session.get(home_url, headers=headers, timeout=15)
+        home_response.raise_for_status()
+        html_content = home_response.text
+        print("Halaman utama berhasil diambil.")
 
-        print("Mencari token di dalam HTML...")
-        # Pola regex untuk mencari: <input name="token" value="NILAI_TOKEN">
         search = re.search(r'<input name="token" value="([^"]+)">', html_content)
+        if not search or not search.group(1):
+            return None, "Gagal menemukan token di halaman utama SnapTik."
         
-        if search and search.group(1):
-            # Jika ditemukan dan nilainya tidak kosong
-            token = search.group(1)
-            print(f"Token ditemukan: {token}")
-            return token, html_content
+        token = search.group(1)
+        print(f"Token ditemukan: {token}")
+
+        # --- LANGKAH 2: Menggunakan token untuk mengirim request POST ke API ---
+        api_url = "https://snaptik.app/abc2.php"
+        payload = {
+            'url': tiktok_url,
+            'token': token,
+        }
+        headers['Referer'] = 'https://snaptik.app/' # Tambahkan referer
+        print(f"Mengirim request POST ke {api_url}...")
+        
+        api_response = session.post(api_url, headers=headers, data=payload, timeout=20)
+        api_response.raise_for_status()
+        print("Request POST berhasil.")
+
+        # --- LANGKAH 3: Mengekstrak link download dari respons ---
+        api_text = api_response.text
+        link_search = re.search(r'href=\\"(https:\/\/snapxcdn\.com\/[^"]+)\\"', api_text)
+        
+        if link_search:
+            download_link = link_search.group(1).replace('\\', '')
+            print(f"Link download ditemukan: {download_link}")
+            return download_link, None
         else:
-            # Jika tidak ditemukan atau nilainya kosong
-            print("Token tidak ditemukan atau value-nya kosong.")
-            return None, html_content
+            print("Link download tidak ditemukan di dalam respons API.")
+            return None, "SnapTik tidak mengembalikan link download. Video mungkin tidak valid atau sistem telah berubah."
 
     except requests.exceptions.RequestException as e:
-        print(f"Gagal mengambil halaman: {e}")
-        return None, f"Error saat request: {str(e)}"
+        print(f"Terjadi error: {e}")
+        return None, f"Terjadi kesalahan jaringan: {str(e)}"
 
 # --- Routing Aplikasi Flask ---
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def home():
-    token, raw_html = scrape_initial_token()
-    # Kita potong HTML mentah agar tidak terlalu panjang saat ditampilkan
-    raw_html_snippet = (raw_html[:3000000] + '...') if raw_html else "Tidak ada HTML yang diterima."
+    if request.method == 'POST':
+        url_input = request.form.get('tiktok_url')
+        if not url_input:
+            return render_template_string(HTML_TEMPLATE, error="URL tidak boleh kosong.")
+        
+        link, error = get_final_snaptik_link(url_input)
+        
+        if link:
+            return render_template_string(HTML_TEMPLATE, download_link=link)
+        else:
+            return render_template_string(HTML_TEMPLATE, error=error)
     
-    # Menampilkan hasil di halaman web
-    return render_template_string(HTML_TEMPLATE, token=token, raw_html=raw_html_snippet)
-
+    return render_template_string(HTML_TEMPLATE)
+            
