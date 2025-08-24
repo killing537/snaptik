@@ -49,7 +49,7 @@ def get_link_with_hardcoded_token(tiktok_url):
     session = requests.Session()
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
-        'Referer': 'https://snaptik.app/'
+        'Referer': 'https://snaptik.app/ID2'
     }
     
     # LANGSUNG LOMPAT KE LANGKAH 2: Menggunakan token yang sudah kita simpan
