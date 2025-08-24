@@ -6,10 +6,9 @@ import re
 app = Flask(__name__)
 
 # --- Template HTML disatukan di sini agar mudah ---
-# Ini adalah tampilan antarmuka web untuk aplikasi kita
 HTML_TEMPLATE = """
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,7 +21,7 @@ HTML_TEMPLATE = """
         button { background-color: #1877f2; color: white; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: bold; width: 100%; }
         button:hover { background-color: #166fe5; }
         .result { margin-top: 1.5rem; }
-        .result a { background-color: #42b72a; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block; }
+        .result a { background-color: #42b72a; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; }
         .result a:hover { background-color: #36a420; }
         .error { color: #f02849; font-weight: bold; }
         .loader { display: none; margin: 1rem auto; border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #1877f2; width: 40px; height: 40px; animation: spin 1s linear infinite; }
@@ -56,60 +55,68 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# --- Fungsi Backend untuk Mengambil Link Download ---
+# --- Fungsi Backend yang Diperbarui ---
 def get_download_link(tiktok_url):
     """
     Fungsi ini berkomunikasi dengan API ssstik.io untuk mendapatkan link download.
+    Sekarang sudah bisa menangani URL singkat (vt.tiktok.com).
     """
+    session = requests.Session()
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36'
     }
-    api_url = "https://ssstik.io/abc?url=dl"
-    payload = {'id': tiktok_url, 'locale': 'en'}
 
     try:
-        # Menggunakan session untuk menangani cookies
-        session = requests.Session()
-        session.get('https://ssstik.io/', headers=headers, timeout=15) # Kunjungan awal untuk sesi
-        
-        response = session.post(api_url, data=payload, headers=headers, timeout=15)
-        response.raise_for_status() # Cek jika ada error HTTP
+        # Langkah 1: Ubah URL singkat menjadi URL panjang.
+        # Kita gunakan HEAD request agar efisien, karena hanya butuh header-nya.
+        res = session.head(tiktok_url, headers=headers, allow_redirects=True, timeout=10)
+        full_url = res.url # Ini akan berisi URL final setelah semua pengalihan
 
-        # Mencari link download video tanpa watermark di dalam respons HTML
-        download_search = re.search(r'href="([^"]+)" class="pure-button pure-button-primary is-center u-bl dl-button download_link without_watermark"', response.text)
+        if "tiktok.com" not in full_url:
+             return None, "URL yang Anda masukkan sepertinya bukan dari TikTok."
+
+        # Langkah 2: Gunakan URL panjang untuk berinteraksi dengan ssstik.io
+        session.get('https://ssstik.io/', headers=headers, timeout=15)
+        
+        # Langkah 3: Siapkan data untuk dikirim ke API ssstik.io
+        api_url = "https://ssstik.io/abc?url=dl"
+        payload = {'id': full_url, 'locale': 'en'} # Gunakan full_url di sini!
+        
+        api_response = session.post(api_url, data=payload, headers=headers, timeout=15)
+        api_response.raise_for_status()
+
+        # Langkah 4: Cari link download di dalam respons HTML
+        download_search = re.search(r'href="([^"]+)" class="pure-button pure-button-primary is-center u-bl dl-button download_link without_watermark"', api_response.text)
         
         if download_search:
-            return download_search.group(1) # Mengembalikan link jika ditemukan
+            return download_search.group(1), None # Mengembalikan (link, None) jika berhasil
         else:
-            return None # Mengembalikan None jika tidak ditemukan
-    except requests.exceptions.RequestException as e:
-        print(f"API Error: {e}")
-        return None
+            return None, "Tidak dapat menemukan link download. Video mungkin bersifat privat atau situs downloader sedang diperbarui."
 
-# --- Routing Aplikasi Flask ---
-# Ini mengatur bagaimana aplikasi merespons permintaan dari browser
+    except requests.exceptions.Timeout:
+        return None, "Koneksi ke server downloader habis waktu. Coba lagi nanti."
+    except requests.exceptions.RequestException as e:
+        print(f"API Error: {e}") # Untuk debugging di log Vercel
+        return None, "Terjadi kesalahan saat menghubungi layanan downloader."
+
+# --- Routing Aplikasi Flask yang Diperbarui ---
 @app.route('/', methods=['GET', 'POST'])
 def home():
     if request.method == 'POST':
-        # Jika pengguna mengirimkan form (metode POST)
         url_input = request.form.get('tiktok_url')
         if not url_input:
             return render_template_string(HTML_TEMPLATE, error="URL tidak boleh kosong.")
         
-        # Panggil fungsi backend untuk mendapatkan link
-        link = get_download_link(url_input)
+        # Panggil fungsi backend untuk mendapatkan link dan pesan error
+        link, error_message = get_download_link(url_input)
         
         if link:
-            # Jika link ditemukan, tampilkan halaman dengan link download
+            # Jika berhasil, tampilkan link download
             return render_template_string(HTML_TEMPLATE, download_link=link)
         else:
-            # Jika link tidak ditemukan, tampilkan pesan error
-            return render_template_string(HTML_TEMPLATE, error="Gagal mendapatkan link download. Pastikan URL valid dan coba lagi.")
+            # Jika gagal, tampilkan pesan error yang lebih spesifik
+            return render_template_string(HTML_TEMPLATE, error=error_message)
     
-    # Jika pengguna baru membuka halaman (metode GET)
+    # Tampilan awal saat halaman dibuka
     return render_template_string(HTML_TEMPLATE)
 
-# Bagian ini tidak wajib untuk Vercel, tapi berguna untuk tes lokal
-if __name__ == '__main__':
-    app.run(debug=True)
-    
