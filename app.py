@@ -46,7 +46,7 @@ def scrape_initial_token():
     """
     Fungsi ini mengambil halaman utama SnapTik dan mencoba mengekstrak token.
     """
-    url = "https://snaptik.app"
+    url = "https://snaptik.app/ID2"
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'
     }
