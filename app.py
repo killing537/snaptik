@@ -11,7 +11,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TikTok Downloader Pro</title>
+    <title>TikTok Downloader Final</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #1c1e21; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 1rem; box-sizing: border-box; }
         .container { background-color: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; max-width: 500px; width: 100%; }
@@ -30,8 +30,8 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <div class="container">
-        <h1>TikTok Downloader Pro</h1>
-        <p class="subtitle">Menggunakan metode API yang lebih andal.</p>
+        <h1>TikTok Downloader Final</h1>
+        <p class="subtitle">Mendukung semua format URL.</p>
         <form method="post" onsubmit="document.getElementById('loader').style.display='block'">
             <input type="text" name="tiktok_url" placeholder="Tempel URL TikTok di sini..." required>
             <button type="submit">Download</button>
@@ -43,7 +43,7 @@ HTML_TEMPLATE = """
                 <a href="{{ download_link }}" target="_blank">Unduh Video Tanpa Watermark</a>
             {% endif %}
             {% if error %}
-                <p class="error">{{ error }}</p>
+                <p class="error">Error: {{ error }}</p>
             {% endif %}
         </div>
     </div>
@@ -51,44 +51,40 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# --- Fungsi Backend Baru Menggunakan API Langsung ---
+# --- Fungsi Backend Final dengan Penanganan URL Singkat ---
 def get_download_link_from_api(tiktok_url):
-    """
-    Fungsi ini berkomunikasi dengan API lovetik.com untuk mendapatkan link download.
-    Metode ini lebih stabil daripada scraping HTML.
-    """
-    api_url = "https://lovetik.com/api/ajax/search"
+    session = requests.Session()
     headers = {
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36'
     }
-    data = {'query': tiktok_url}
 
     try:
-        response = requests.post(api_url, headers=headers, data=data, timeout=20)
+        # Langkah 1: Ubah URL singkat (vt.tiktok.com) menjadi URL panjang.
+        res = session.head(tiktok_url, headers=headers, allow_redirects=True, timeout=10)
+        full_url = res.url # Ini akan berisi URL final setelah semua pengalihan
+
+        # Langkah 2: Kirim URL PANJANG ke API lovetik.com
+        api_url = "https://lovetik.com/api/ajax/search"
+        data = {'query': full_url} # Gunakan full_url di sini
+        response = session.post(api_url, headers=headers, data=data, timeout=20)
         response.raise_for_status()
         
-        # Mengurai respons JSON
         json_data = response.json()
 
-        # Memeriksa status dan mencari link download
         if json_data.get('status') == 'ok' and json_data.get('links'):
-            # Mencari link yang tidak ada watermark ('nowm')
             for link in json_data['links']:
                 if link.get('t') == 'Nowatermark':
-                    return link.get('u'), None # Mengembalikan (link, None) jika berhasil
-            
-            # Jika 'nowm' tidak ada, kembalikan link pertama yang tersedia
+                    return link.get('u'), None
             return json_data['links'][0].get('u'), None
         else:
-            # Mengambil pesan error dari API jika ada
             error_message = json_data.get('mess', 'Gagal memproses video. URL mungkin tidak valid atau video bersifat privat.')
             return None, error_message
 
     except requests.exceptions.RequestException as e:
         print(f"API Request Error: {e}")
         return None, "Terjadi kesalahan saat menghubungi API downloader."
-    except ValueError: # Menangani jika respons bukan JSON
+    except ValueError:
         return None, "Gagal membaca respons dari API. Mungkin layanan sedang down."
 
 # --- Routing Aplikasi Flask ---
@@ -107,4 +103,4 @@ def home():
             return render_template_string(HTML_TEMPLATE, error=error)
     
     return render_template_string(HTML_TEMPLATE)
-        
+                                          
