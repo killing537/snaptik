@@ -60,7 +60,7 @@ def get_final_snaptik_link(tiktok_url):
     
     try:
         # --- LANGKAH 1: Mengambil halaman utama untuk mendapatkan token ---
-        home_url = "https://snaptik.app"
+        home_url = "https://snaptik.app/ID2"
         print(f"Mengambil halaman utama dari {home_url}...")
         home_response = session.get(home_url, headers=headers, timeout=15)
         home_response.raise_for_status()
