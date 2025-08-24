@@ -81,7 +81,7 @@ def scrape_initial_token():
 def home():
     token, raw_html = scrape_initial_token()
     # Kita potong HTML mentah agar tidak terlalu panjang saat ditampilkan
-    raw_html_snippet = (raw_html[:3000] + '...') if raw_html else "Tidak ada HTML yang diterima."
+    raw_html_snippet = (raw_html[:30000] + '...') if raw_html else "Tidak ada HTML yang diterima."
     
     # Menampilkan hasil di halaman web
     return render_template_string(HTML_TEMPLATE, token=token, raw_html=raw_html_snippet)
