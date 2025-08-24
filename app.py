@@ -80,7 +80,7 @@ def get_final_snaptik_link(tiktok_url):
             'url': tiktok_url,
             'token': token,
         }
-        headers['Referer'] = 'https://snaptik.app/' # Tambahkan referer
+        headers['Referer'] = 'https://snaptik.app/ID2' # Tambahkan referer
         print(f"Mengirim request POST ke {api_url}...")
         
         api_response = session.post(api_url, headers=headers, data=payload, timeout=20)
