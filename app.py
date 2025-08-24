@@ -1,4 +1,5 @@
-from flask import Flask, request, render_template_string, escape
+from flask import Flask, request, render_template_string
+from markupsafe import escape
 import requests
 import re
 
@@ -62,15 +63,11 @@ def get_download_link(tiktok_url):
         api_response = session.post(api_url, data=payload, headers=headers, timeout=15)
         api_response.raise_for_status()
 
-        # Kita masih mencoba mencari linknya
         download_search = re.search(r'href="([^"]+)" class="pure-button pure-button-primary is-center u-bl dl-button download_link without_watermark"', api_response.text)
         
         if download_search:
-            # Jika berhasil, kita tidak butuh debug
             return "BERHASIL MENEMUKAN LINK! (Tidak perlu debug)", None
         else:
-            # !! INI BAGIAN PENTING !!
-            # Jika gagal, kita kembalikan seluruh isi HTML-nya sebagai pesan error
             return None, api_response.text
 
     except requests.exceptions.RequestException as e:
@@ -83,8 +80,7 @@ def home():
         url_input = request.form.get('tiktok_url')
         link, error_message = get_download_link(url_input)
         
-        # Kita gunakan escape() untuk menampilkan HTML sebagai teks biasa dengan aman
-        return render_template_string(HTML_TEMPLATE, error=escape(error_message))
+        return render_template_string(HTML_TEMPLATE, error=escape(error_message or "Tidak ada error, namun link juga tidak ditemukan."))
     
     return render_template_string(HTML_TEMPLATE)
-
+    
